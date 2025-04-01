@@ -2,6 +2,31 @@
 
 AVO AI es un chatbot inteligente impulsado por el potente modelo de lenguaje GPT de DeepSeek AI, creado con pasión y dedicación en la isla de La Palma, en las Islas Canarias. El asistente ha sido diseñado para interactuar mediante texto, voz y análisis visual, ofreciendo una experiencia de usuario atractiva, intuitiva y multimedia.
 
+🧑‍💻 Cómo ejecutar el proyecto en local
+
+Requisitos previos
+
+Node.js (versión 18 o superior)
+
+npm (gestor de paquetes de Node.js)
+
+Pasos para clonar y ejecutar AVO AI en local:
+
+# 1. Clonar el repositorio
+https://github.com/andreapianidev/AVO-AI.git
+
+# 2. Entrar en el directorio del proyecto
+cd AVO-AI
+
+# 3. Instalar dependencias
+npm install
+
+# 4. Ejecutar en modo desarrollo
+npm run dev
+
+# La app estará disponible en http://localhost:5173
+
+
 🚀 ¿Por qué AVO AI es único?
 
 AVO AI combina la potencia del modelo DeepSeek GPT con una sofisticada interfaz de usuario desarrollada con tecnologías modernas, garantizando interacciones fluidas y una experiencia de usuario excepcional. Diseñada especialmente para satisfacer las necesidades de la comunidad local de las Islas Canarias, esta aplicación pretende no solo ser útil, sino también ser un referente para promover y destacar el patrimonio cultural local.
