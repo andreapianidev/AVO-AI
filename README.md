@@ -68,7 +68,7 @@ Uno de los objetivos principales para el futuro es realizar un fine-tuning del m
 
 AVO AI es un proyecto de código abierto disponible bajo licencia MIT.
 
-Hecho con ❤️ por Andrea en La Palma – Islas Canarias.
+Hecho con ❤️ en La Palma – Islas Canarias.
 
 🌴 ¡Bienvenidos a bordo! 🌴
 
