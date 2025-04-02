@@ -11,7 +11,7 @@ import '@tensorflow/tfjs-backend-webgl';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import { getDailyQuestions, incrementDailyQuestions, hasReachedDailyLimit, getRemainingQuestions } from './utils/dailyLimit';
 
-const API_KEY = 'sk-5af8b0882a2d44ad81b17cdd078f7f0b';
+const API_KEY = 'YOUR API KEY';
 const API_URL = 'https://api.deepseek.com/v1/chat/completions';
 const MAX_FILES = 5;
 
