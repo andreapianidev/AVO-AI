@@ -1,16 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Globe, X, FileText, Image, ChevronDown, Mic, Check } from 'lucide-react';
+import { Send, Globe, X, FileText, Image, ChevronDown, Mic } from 'lucide-react';
 import { Message, Language, DocumentFile } from './types';
 import { ChatMessage } from './components/ChatMessage';
 import { VoiceWaveform } from './components/VoiceWaveform';
 import { DonateButton } from './components/DonateButton';
+import { RemainingQuestions } from './components/RemainingQuestions';
 import { translations } from './i18n';
-import { hasReachedDailyLimit, incrementDailyQuestions, getRemainingQuestions } from './utils/dailyLimit';
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl';
 import * as mobilenet from '@tensorflow-models/mobilenet';
+import { getDailyQuestions, incrementDailyQuestions, hasReachedDailyLimit, getRemainingQuestions } from './utils/dailyLimit';
 
-const API_KEY = 'YOUR-API-KEY';
+const API_KEY = 'sk-5af8b0882a2d44ad81b17cdd078f7f0b';
 const API_URL = 'https://api.deepseek.com/v1/chat/completions';
 const MAX_FILES = 5;
 
@@ -31,12 +32,6 @@ function App() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [cookiesAccepted, setCookiesAccepted] = useState(false);
   const [language, setLanguage] = useState<Language>(() => {
-    // Prima controlliamo se c'è una lingua salvata nel localStorage
-    const savedLanguage = localStorage.getItem('preferredLanguage') as Language;
-    if (savedLanguage && Object.keys(translations).includes(savedLanguage)) {
-      return savedLanguage;
-    }
-  
     const getSupportedLanguage = (browserLangs: string[]): Language => {
       console.log('Browser languages:', browserLangs);
       
@@ -53,12 +48,12 @@ function App() {
       console.log('Detected language:', supported || 'en');
       return supported || 'en';
     };
-  
+
     const browserLangs = [
       navigator.language,
       ...(navigator.languages || [])
     ].filter(Boolean);
-  
+
     return getSupportedLanguage(browserLangs);
   });
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
@@ -68,7 +63,7 @@ function App() {
   const [isListening, setIsListening] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const [remainingQuestions, setRemainingQuestions] = useState(getRemainingQuestions());
+  const [streamingMessage, setStreamingMessage] = useState<string>('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,43 +81,21 @@ function App() {
                         language === 'es' ? 'es-ES' :
                         language === 'fr' ? 'fr-FR' :
                         language === 'de' ? 'de-DE' :
-                        language === 'pl' ? 'pl-PL' : 
-                        language === 'palmero' ? 'es-ES' : 'en-US';
+                        language === 'pl' ? 'pl-PL' : 'en-US';
     }
   }, [language, recognition]);
 
   useEffect(() => {
     const loadModel = async () => {
       try {
-        // Aggiungiamo un timeout più lungo per il caricamento del modello
         await tf.setBackend('webgl');
-        console.log('TensorFlow backend set to WebGL');
         await tf.ready();
-        console.log('TensorFlow ready');
-        
-        // Aggiungiamo un controllo per verificare se il backend è stato impostato correttamente
-        const currentBackend = tf.getBackend();
-        console.log('Current backend:', currentBackend);
-        
-        const loadedModel = await mobilenet.load({version: 1, alpha: 0.25});
-        console.log('MobileNet model loaded successfully');
+        const loadedModel = await mobilenet.load();
         setModel(loadedModel);
         setIsModelLoading(false);
       } catch (error) {
         console.error('Error loading MobileNet model:', error);
-        // Proviamo con un backend alternativo in caso di errore
-        try {
-          console.log('Trying with CPU backend...');
-          await tf.setBackend('cpu');
-          await tf.ready();
-          const loadedModel = await mobilenet.load({version: 1, alpha: 0.25});
-          console.log('MobileNet model loaded successfully with CPU backend');
-          setModel(loadedModel);
-        } catch (fallbackError) {
-          console.error('Fallback loading also failed:', fallbackError);
-        } finally {
-          setIsModelLoading(false);
-        }
+        setIsModelLoading(false);
       }
     };
     loadModel();
@@ -145,7 +118,7 @@ function App() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, streamingMessage]);
 
   const startListening = async () => {
     try {
@@ -357,6 +330,7 @@ function App() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setStreamingMessage('');
 
     try {
       const response = await fetch(API_URL, {
@@ -375,8 +349,9 @@ function App() {
             ...messages,
             userMessage
           ],
-          temperature: language === 'palmero' ? 0.8 : 0.7, // Slightly higher temperature for more casual dialect
+          temperature: 0.7,
           max_tokens: 2000,
+          stream: true,
         }),
       });
 
@@ -388,15 +363,48 @@ function App() {
         );
       }
 
-      const data = await response.json();
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.choices[0].message.content,
-      };
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is null');
 
-      setMessages(prev => [...prev, assistantMessage]);
-      const remaining = incrementDailyQuestions();
-      setRemainingQuestions(remaining);
+      let accumulatedMessage = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices[0]?.delta?.content || '';
+              accumulatedMessage += content;
+              setStreamingMessage(accumulatedMessage);
+            } catch (e) {
+              console.error('Error parsing streaming response:', e);
+            }
+          }
+        }
+      }
+
+      const remainingQuestions = incrementDailyQuestions();
+      
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: accumulatedMessage
+      }]);
+      
+      if (remainingQuestions <= 2) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: strings.questionsRemaining.replace('{count}', remainingQuestions.toString())
+        }]);
+      }
+
     } catch (error: any) {
       console.error('API Error:', error);
       setMessages(prev => [...prev, {
@@ -405,6 +413,7 @@ function App() {
       }]);
     } finally {
       setIsLoading(false);
+      setStreamingMessage('');
     }
   };
 
@@ -418,38 +427,41 @@ function App() {
             <img src="/avocado-logo.png" alt="AVO AI Logo" className="w-8 h-8" />
             <h1 className="text-xl font-semibold text-gray-100">AVO AI</h1>
           </div>
-          <div className="relative" ref={languageMenuRef}>
-            <button
-              onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-700/50 text-gray-300 hover:text-white transition-colors text-sm"
-              aria-label={strings.languageSelector}
-            >
-              <Globe size={16} />
-              <span>{languageNames[language]}</span>
-              <ChevronDown size={14} className={`transition-transform ${isLanguageMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {isLanguageMenuOpen && (
-              <div className="absolute right-0 mt-1 w-40 rounded-md bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 z-50">
-                <div className="py-1">
-                  {(Object.entries(languageNames) as [Language, string][]).map(([code, name]) => (
-                    <button
-                      key={code}
-                      onClick={() => {
-                        setLanguage(code);
-                        setIsLanguageMenuOpen(false);
-                      }}
-                      className={`block w-full text-left px-3 py-1.5 text-sm ${
-                        language === code
-                          ? 'bg-green-600 text-white'
-                          : 'text-gray-300 hover:bg-gray-700'
-                      }`}
-                    >
-                      {name}
-                    </button>
-                  ))}
+          <div className="flex items-center gap-3">
+            <RemainingQuestions text={strings.questionsRemaining} />
+            <div className="relative" ref={languageMenuRef}>
+              <button
+                onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-700/50 text-gray-300 hover:text-white transition-colors text-sm"
+                aria-label={strings.languageSelector}
+              >
+                <Globe size={16} />
+                <span>{languageNames[language]}</span>
+                <ChevronDown size={14} className={`transition-transform ${isLanguageMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isLanguageMenuOpen && (
+                <div className="absolute right-0 mt-1 w-40 rounded-md bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="py-1">
+                    {(Object.entries(languageNames) as [Language, string][]).map(([code, name]) => (
+                      <button
+                        key={code}
+                        onClick={() => {
+                          setLanguage(code);
+                          setIsLanguageMenuOpen(false);
+                        }}
+                        className={`block w-full text-left px-3 py-1.5 text-sm ${
+                          language === code
+                            ? 'bg-green-600 text-white'
+                            : 'text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -493,14 +505,7 @@ function App() {
             <div className="text-center py-10">
               <img src="/avocado-logo.png" alt="AVO AI Logo" className="w-20 h-20 mx-auto mb-4" />
               <h2 className="text-xl font-bold text-gray-100 mb-2">{strings.welcome}</h2>
-              {language === 'palmero' ? (
-                <p 
-                  className="text-base text-gray-400 mb-6"
-                  dangerouslySetInnerHTML={{ __html: strings.subtitle }}
-                />
-              ) : (
-                <p className="text-base text-gray-400 mb-6">{strings.subtitle}</p>
-              )}
+              <p className="text-base text-gray-400 mb-6">{strings.subtitle}</p>
               <div className="bg-gray-800/50 p-5 rounded-lg text-left max-w-xl mx-auto">
                 <div className="space-y-3">
                   <label className="flex items-start gap-2 cursor-pointer group">
@@ -556,7 +561,7 @@ function App() {
                     <p className="text-xs text-gray-400">
                       {strings.pleaseAccept}
                     </p>
-                    <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-col items-center gap-2">
                       <p className="text-sm text-gray-300">{strings.supportMessage}</p>
                       <DonateButton text={strings.supportProject} />
                     </div>
@@ -568,7 +573,15 @@ function App() {
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}
-          {isLoading && (
+          {streamingMessage && (
+            <ChatMessage
+              message={{
+                role: 'assistant',
+                content: streamingMessage
+              }}
+            />
+          )}
+          {isLoading && !streamingMessage && (
             <div className="flex items-center justify-center py-3">
               <div className="animate-pulse flex items-center gap-1 text-green-400">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce"></div>
@@ -583,11 +596,6 @@ function App() {
 
       <footer className="bg-gray-800/80 backdrop-blur-sm border-t border-gray-700 p-3 sticky bottom-0">
         <div className="max-w-3xl mx-auto">
-          {remainingQuestions > 0 && allPoliciesAccepted && (
-            <div className="text-xs text-gray-400 mb-2">
-              {strings.questionsRemaining.replace('{count}', remainingQuestions.toString())}
-            </div>
-          )}
           <form onSubmit={handleSubmit} className="relative">
             <div className="relative rounded-xl bg-gray-700/50 backdrop-blur-sm">
               <textarea
@@ -601,7 +609,7 @@ function App() {
                   minHeight: '48px',
                   maxHeight: '120px'
                 }}
-                disabled={isLoading || !allPoliciesAccepted || hasReachedDailyLimit()}
+                disabled={isLoading || !allPoliciesAccepted}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement;
                   target.style.height = 'auto';
@@ -609,7 +617,6 @@ function App() {
                 }}
               />
               
-        
               <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button
                   type="button"
@@ -617,119 +624,50 @@ function App() {
                     if (allPoliciesAccepted) {
                       if (menuRef.current && document.body.contains(menuRef.current)) {
                         document.body.removeChild(menuRef.current);
-                        menuRef.current = null;
-                        return;
                       }
-                      
+
                       const menuElement = document.createElement('div');
                       menuRef.current = menuElement;
+                      menuElement.className = 'absolute bottom-full left-0 mb-2 bg-gray-800 rounded-lg shadow-lg p-1 flex flex-col gap-1 z-50';
                       
-                      // Stile migliorato per il menu
-                      menuElement.style.position = 'fixed';
-                      menuElement.style.backgroundColor = '#1f2937'; // bg-gray-800
-                      menuElement.style.borderRadius = '0.5rem';
-                      menuElement.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3)';
-                      menuElement.style.padding = '0.5rem';
-                      menuElement.style.zIndex = '50';
-                      menuElement.style.display = 'flex';
-                      menuElement.style.flexDirection = 'column';
-                      menuElement.style.gap = '0.25rem';
-                      menuElement.style.minWidth = '200px';
-                      menuElement.style.border = '1px solid #374151'; // border-gray-700
-                      
-                      // Crea il pulsante per i documenti
                       const docButton = document.createElement('button');
-                      docButton.style.padding = '0.5rem 0.75rem';
-                      docButton.style.borderRadius = '0.375rem';
-                      docButton.style.color = '#d1d5db'; // text-gray-300
-                      docButton.style.display = 'flex';
-                      docButton.style.alignItems = 'center';
-                      docButton.style.gap = '0.5rem';
-                      docButton.style.fontSize = '0.875rem';
-                      docButton.style.width = '100%';
-                      docButton.style.textAlign = 'left';
-                      docButton.style.transition = 'all 0.2s';
-                      
+                      docButton.className = 'p-2 rounded-lg hover:bg-gray-700 text-gray-300 flex items-center gap-1.5 text-sm';
                       docButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' +
                         `<span>${strings.uploadDocument}</span>`;
-                      
-                      docButton.addEventListener('mouseover', () => {
-                        docButton.style.backgroundColor = '#374151'; // hover:bg-gray-700
-                        docButton.style.color = '#e5e7eb'; // hover:text-gray-200
-                      });
-                      
-                      docButton.addEventListener('mouseout', () => {
-                        docButton.style.backgroundColor = 'transparent';
-                        docButton.style.color = '#d1d5db'; // text-gray-300
-                      });
                       
                       docButton.addEventListener('click', () => {
                         fileInputRef.current?.click();
                         if (document.body.contains(menuElement)) {
                           document.body.removeChild(menuElement);
-                          menuRef.current = null;
                         }
                       });
                       
-                      // Crea il pulsante per le immagini
                       const imgButton = document.createElement('button');
-                      imgButton.style.padding = '0.5rem 0.75rem';
-                      imgButton.style.borderRadius = '0.375rem';
-                      imgButton.style.color = '#d1d5db'; // text-gray-300
-                      imgButton.style.display = 'flex';
-                      imgButton.style.alignItems = 'center';
-                      imgButton.style.gap = '0.5rem';
-                      imgButton.style.fontSize = '0.875rem';
-                      imgButton.style.width = '100%';
-                      imgButton.style.textAlign = 'left';
-                      imgButton.style.transition = 'all 0.2s';
-                      
+                      imgButton.className = 'p-2 rounded-lg hover:bg-gray-700 text-gray-300 flex items-center gap-1.5 text-sm';
                       imgButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>' +
                         `<span>${strings.uploadImage}</span>`;
-                      
-                      imgButton.addEventListener('mouseover', () => {
-                        imgButton.style.backgroundColor = '#374151'; // hover:bg-gray-700
-                        imgButton.style.color = '#e5e7eb'; // hover:text-gray-200
-                      });
-                      
-                      imgButton.addEventListener('mouseout', () => {
-                        imgButton.style.backgroundColor = 'transparent';
-                        imgButton.style.color = '#d1d5db'; // text-gray-300
-                      });
                       
                       imgButton.addEventListener('click', () => {
                         imageInputRef.current?.click();
                         if (document.body.contains(menuElement)) {
                           document.body.removeChild(menuElement);
-                          menuRef.current = null;
                         }
                       });
-              
+                
                       menuElement.appendChild(docButton);
                       menuElement.appendChild(imgButton);
                       
                       document.body.appendChild(menuElement);
                       
                       const buttonRect = (event.target as HTMLElement).getBoundingClientRect();
+                      menuElement.style.position = 'fixed';
                       menuElement.style.left = `${buttonRect.left}px`;
                       menuElement.style.top = `${buttonRect.top - menuElement.offsetHeight - 5}px`;
-                      
-                      // Assicuriamoci che il menu non vada fuori dallo schermo
-                      setTimeout(() => {
-                        const menuRect = menuElement.getBoundingClientRect();
-                        if (menuRect.left < 10) {
-                          menuElement.style.left = '10px';
-                        }
-                        if (menuRect.right > window.innerWidth - 10) {
-                          menuElement.style.left = `${window.innerWidth - menuRect.width - 10}px`;
-                        }
-                      }, 0);
                       
                       const closeMenu = (e: MouseEvent) => {
                         if (!menuElement.contains(e.target as Node)) {
                           if (document.body.contains(menuElement)) {
                             document.body.removeChild(menuElement);
-                            menuRef.current = null;
                           }
                           document.removeEventListener('click', closeMenu);
                         }
@@ -740,15 +678,16 @@ function App() {
                       }, 100);
                     }
                   }}
-                  disabled={isLoading || !allPoliciesAccepted || hasReachedDailyLimit()}
+                  disabled={isLoading || !allPoliciesAccepted}
                   className={`p-2 rounded-lg transition-all ${
-                    (isLoading || !allPoliciesAccepted || hasReachedDailyLimit())
+                    (isLoading || !allPoliciesAccepted)
                       ? 'opacity-50 cursor-not-allowed text-gray-500'
                       : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600/50'
                   }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
+                    
                     <line x1="12" y1="8" x2="12" y2="16" />
                     <line x1="8" y1="12" x2="16" y2="12" />
                   </svg>
@@ -774,13 +713,13 @@ function App() {
                 <button
                   type="button"
                   onClick={isListening ? stopListening : startListening}
-                  disabled={isLoading || !allPoliciesAccepted || hasReachedDailyLimit()}
+                  disabled={isLoading || !allPoliciesAccepted}
                   className={`p-2 rounded-lg transition-all ${
-                    (isLoading || !allPoliciesAccepted || hasReachedDailyLimit())
+                    (isLoading || !allPoliciesAccepted)
                       ? 'opacity-50 cursor-not-allowed text-gray-500'
                       : isListening
-                      ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600/50'
+                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-600/50'
                   }`}
                   aria-label={isListening ? strings.stopListening : strings.startListening}
                 >
@@ -789,9 +728,9 @@ function App() {
                 
                 <button
                   type="submit"
-                  disabled={isLoading || !allPoliciesAccepted || !input.trim() || hasReachedDailyLimit()}
+                  disabled={isLoading || !allPoliciesAccepted || !input.trim()}
                   className={`p-2 rounded-lg transition-all ${
-                    (isLoading || !allPoliciesAccepted || !input.trim() || hasReachedDailyLimit())
+                    (isLoading || !allPoliciesAccepted || !input.trim())
                       ? 'opacity-50 cursor-not-allowed text-gray-500'
                       : 'text-green-500 hover:text-green-400 hover:bg-gray-600/50'
                   }`}
