@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coffee } from 'lucide-react';
+import { Heart } from 'lucide-react';
 
 interface DonateButtonProps {
   text: string;
@@ -11,9 +11,9 @@ export function DonateButton({ text }: DonateButtonProps) {
       href="https://buymeacoffee.com/avoai"
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFDD00] text-gray-900 rounded-lg font-medium hover:bg-[#FFDD00]/90 transition-colors"
+      className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-gray-900 rounded-lg font-medium transition-colors"
     >
-      <Coffee size={20} />
+      <Heart size={20} className="text-red-600" />
       {text}
     </a>
   );

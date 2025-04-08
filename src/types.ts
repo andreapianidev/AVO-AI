@@ -27,6 +27,9 @@ export interface LanguageStrings {
   pleaseAcceptShort: string;
   uploadDocument: string;
   uploadImage: string;
+  identifyPlant: string;
+  analyzingPlant: string;
+  plantLimitReached: string;
   send: string;
   startListening: string;
   stopListening: string;
@@ -42,6 +45,7 @@ export interface LanguageStrings {
   questionsRemaining: string;
   supportProject: string;
   supportMessage: string;
+  limitReachedDonate: string;
 }
 
 export interface DocumentFile {

@@ -14,6 +14,9 @@ export const translations: Record<string, LanguageStrings> = {
     pleaseAcceptShort: "Please accept all policies",
     uploadDocument: "Upload document",
     uploadImage: "Upload image",
+    identifyPlant: "Identify plant",
+    analyzingPlant: "Analyzing plant...",
+    plantLimitReached: "You've reached your daily limit of 3 plant identifications. Please try again tomorrow.",
     send: "Send message",
     startListening: "Start voice input",
     stopListening: "Stop voice input",
@@ -28,7 +31,8 @@ export const translations: Record<string, LanguageStrings> = {
     dailyLimitReached: "You've reached your daily limit of 5 questions. Please try again tomorrow.",
     questionsRemaining: "Questions remaining today: {count}",
     supportProject: "Support this project",
-    supportMessage: "Help us keep AVO AI free and accessible to everyone"
+    supportMessage: "Help us keep AVO AI free and accessible to everyone",
+    limitReachedDonate: "You've reached your daily limit. Consider supporting AVO AI to help us keep it free for everyone!"
   },
   es: {
     placeholder: "¿Cómo puedo ayudarte hoy?",
@@ -43,6 +47,9 @@ export const translations: Record<string, LanguageStrings> = {
     pleaseAcceptShort: "Por favor, acepta todas las políticas",
     uploadDocument: "Subir documento",
     uploadImage: "Subir imagen",
+    identifyPlant: "Identificar planta",
+    analyzingPlant: "Analizando planta...",
+    plantLimitReached: "Has alcanzado tu límite diario de 3 identificaciones de plantas. Por favor, inténtalo de nuevo mañana.",
     send: "Enviar mensaje",
     startListening: "Iniciar entrada de voz",
     stopListening: "Detener entrada de voz",
@@ -57,7 +64,8 @@ export const translations: Record<string, LanguageStrings> = {
     dailyLimitReached: "Has alcanzado tu límite diario de 5 preguntas. Por favor, inténtalo de nuevo mañana.",
     questionsRemaining: "Preguntas restantes hoy: {count}",
     supportProject: "Apoya este proyecto",
-    supportMessage: "Ayúdanos a mantener AVO AI gratuito y accesible para todos"
+    supportMessage: "Ayúdanos a mantener AVO AI gratuito y accesible para todos",
+    limitReachedDonate: "Has alcanzado tu límite diario. ¡Considera apoyar a AVO AI para ayudarnos a mantenerlo gratuito para todos!"
   },
   palmero: {
     placeholder: "¿En qué te echo una mano, mi niño/a?",
@@ -72,6 +80,9 @@ export const translations: Record<string, LanguageStrings> = {
     pleaseAcceptShort: "Acepta las políticas primero",
     uploadDocument: "Subir documento",
     uploadImage: "Subir imagen",
+    identifyPlant: "Identificar planta",
+    analyzingPlant: "Mirando qué planta es...",
+    plantLimitReached: "Ya identificaste 3 plantas hoy, vuelve mañana pa' más",
     send: "Mandar mensaje",
     startListening: "Hablar ahora",
     stopListening: "Parar de hablar",
@@ -86,7 +97,8 @@ export const translations: Record<string, LanguageStrings> = {
     dailyLimitReached: "Ya hiciste tus 5 preguntas de hoy, vuelve mañana",
     questionsRemaining: "Preguntas que te quedan hoy: {count}",
     supportProject: "Apoya este proyecto",
-    supportMessage: "Échanos una mano pa' que AVO AI siga siendo gratis pa' todos"
+    supportMessage: "Échanos una mano pa' que AVO AI siga siendo gratis pa' todos",
+    limitReachedDonate: "Ya gastaste tus preguntas de hoy. ¡Échanos una manita pa' que AVO AI siga siendo gratis pa' todos!"
   },
   it: {
     placeholder: "Come posso aiutarti oggi?",
@@ -101,6 +113,9 @@ export const translations: Record<string, LanguageStrings> = {
     pleaseAcceptShort: "Accetta tutte le policy",
     uploadDocument: "Carica documento",
     uploadImage: "Carica immagine",
+    identifyPlant: "Identifica pianta",
+    analyzingPlant: "Analisi della pianta in corso...",
+    plantLimitReached: "Hai raggiunto il limite giornaliero di 3 identificazioni di piante. Riprova domani.",
     send: "Invia messaggio",
     startListening: "Avvia input vocale",
     stopListening: "Ferma input vocale",
@@ -115,7 +130,8 @@ export const translations: Record<string, LanguageStrings> = {
     dailyLimitReached: "Hai raggiunto il limite giornaliero di 5 domande. Riprova domani.",
     questionsRemaining: "Domande rimanenti oggi: {count}",
     supportProject: "Supporta questo progetto",
-    supportMessage: "Aiutaci a mantenere AVO AI gratuito e accessibile a tutti"
+    supportMessage: "Aiutaci a mantenere AVO AI gratuito e accessibile a tutti",
+    limitReachedDonate: "Hai raggiunto il limite giornaliero. Considera di supportare AVO AI per aiutarci a mantenerlo gratuito per tutti!"
   },
   fr: {
     placeholder: "Comment puis-je vous aider aujourd'hui ?",
@@ -130,6 +146,9 @@ export const translations: Record<string, LanguageStrings> = {
     pleaseAcceptShort: "Veuillez accepter toutes les politiques",
     uploadDocument: "Télécharger un document",
     uploadImage: "Télécharger une image",
+    identifyPlant: "Identifier une plante",
+    analyzingPlant: "Analyse de la plante en cours...",
+    plantLimitReached: "Vous avez atteint votre limite quotidienne de 3 identifications de plantes. Veuillez réessayer demain.",
     send: "Envoyer le message",
     startListening: "Démarrer l'entrée vocale",
     stopListening: "Arrêter l'entrée vocale",
@@ -144,7 +163,8 @@ export const translations: Record<string, LanguageStrings> = {
     dailyLimitReached: "Vous avez atteint votre limite quotidienne de 5 questions. Veuillez réessayer demain.",
     questionsRemaining: "Questions restantes aujourd'hui : {count}",
     supportProject: "Soutenez ce projet",
-    supportMessage: "Aidez-nous à maintenir AVO AI gratuit et accessible à tous"
+    supportMessage: "Aidez-nous à maintenir AVO AI gratuit et accessible à tous",
+    limitReachedDonate: "Vous avez atteint votre limite quotidienne. Envisagez de soutenir AVO AI pour nous aider à le maintenir gratuit pour tous !"
   },
   de: {
     placeholder: "Wie kann ich Ihnen heute helfen?",
@@ -159,6 +179,9 @@ export const translations: Record<string, LanguageStrings> = {
     pleaseAcceptShort: "Bitte akzeptieren Sie alle Richtlinien",
     uploadDocument: "Dokument hochladen",
     uploadImage: "Bild hochladen",
+    identifyPlant: "Pflanze identifizieren",
+    analyzingPlant: "Pflanze wird analysiert...",
+    plantLimitReached: "Sie haben Ihr tägliches Limit von 3 Pflanzenidentifikationen erreicht. Bitte versuchen Sie es morgen wieder.",
     send: "Nachricht senden",
     startListening: "Spracheingabe starten",
     stopListening: "Spracheingabe stoppen",
@@ -173,7 +196,8 @@ export const translations: Record<string, LanguageStrings> = {
     dailyLimitReached: "Sie haben Ihr tägliches Limit von 5 Fragen erreicht. Bitte versuchen Sie es morgen wieder.",
     questionsRemaining: "Verbleibende Fragen heute: {count}",
     supportProject: "Unterstützen Sie dieses Projekt",
-    supportMessage: "Helfen Sie uns, AVO AI kostenlos und für alle zugänglich zu halten"
+    supportMessage: "Helfen Sie uns, AVO AI kostenlos und für alle zugänglich zu halten",
+    limitReachedDonate: "Sie haben Ihr tägliches Limit erreicht. Erwägen Sie AVO AI zu unterstützen, damit wir es für alle kostenlos halten können!"
   },
   pl: {
     placeholder: "Jak mogę ci dziś pomóc?",
@@ -188,6 +212,9 @@ export const translations: Record<string, LanguageStrings> = {
     pleaseAcceptShort: "Zaakceptuj wszystkie polityki",
     uploadDocument: "Prześlij dokument",
     uploadImage: "Prześlij zdjęcie",
+    identifyPlant: "Zidentyfikuj roślinę",
+    analyzingPlant: "Analizowanie rośliny...",
+    plantLimitReached: "Osiągnąłeś dzienny limit 3 identyfikacji roślin. Spróbuj ponownie jutro.",
     send: "Wyślij wiadomość",
     startListening: "Rozpocznij wprowadzanie głosowe",
     stopListening: "Zatrzymaj wprowadzanie głosowe",
@@ -202,6 +229,7 @@ export const translations: Record<string, LanguageStrings> = {
     dailyLimitReached: "Osiągnąłeś dzienny limit 5 pytań. Spróbuj ponownie jutro.",
     questionsRemaining: "Pozostałe pytania na dziś: {count}",
     supportProject: "Wesprzyj ten projekt",
-    supportMessage: "Pomóż nam utrzymać AVO AI darmowym i dostępnym dla wszystkich"
+    supportMessage: "Pomóż nam utrzymać AVO AI darmowym i dostępnym dla wszystkich",
+    limitReachedDonate: "Osiągnąłeś dzienny limit. Rozważ wsparcie AVO AI, aby pomóc nam utrzymać go darmowym dla wszystkich!"
   }
 };

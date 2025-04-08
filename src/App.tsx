@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Globe, X, FileText, Image, ChevronDown, Mic } from 'lucide-react';
+import { Send, Globe, X, FileText, Image, ChevronDown, Mic, Leaf } from 'lucide-react';
 import { Message, Language, DocumentFile } from './types';
 import { ChatMessage } from './components/ChatMessage';
 import { VoiceWaveform } from './components/VoiceWaveform';
@@ -9,9 +9,10 @@ import { translations } from './i18n';
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl';
 import * as mobilenet from '@tensorflow-models/mobilenet';
-import { getDailyQuestions, incrementDailyQuestions, hasReachedDailyLimit, getRemainingQuestions } from './utils/dailyLimit';
+import { getDailyQuestions, incrementDailyQuestions, hasReachedDailyLimit, getRemainingQuestions, hasReachedPlantLimit, incrementDailyPlants } from './utils/dailyLimit';
+import { identifyPlant } from './utils/plantnet';
 
-const API_KEY = 'sk-5af8b0882a2d44ad81b17cdd078f7f0b';
+const API_KEY = 'YOUR-API-KEY';
 const API_URL = 'https://api.deepseek.com/v1/chat/completions';
 const MAX_FILES = 5;
 
@@ -68,6 +69,7 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const plantInputRef = useRef<HTMLInputElement>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -183,6 +185,87 @@ function App() {
     }
   };
 
+  const createUploadMenu = (buttonRect: DOMRect) => {
+    if (menuRef.current && document.body.contains(menuRef.current)) {
+      document.body.removeChild(menuRef.current);
+    }
+
+    const menuElement = document.createElement('div');
+    menuRef.current = menuElement;
+    menuElement.className = 'fixed z-50 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-lg p-1.5 flex flex-col gap-1.5';
+    
+    const docButton = document.createElement('button');
+    docButton.className = 'p-2 rounded-lg hover:bg-gray-700/80 text-gray-300 hover:text-gray-100 flex items-center gap-2 text-sm transition-colors';
+    docButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' +
+      `<span>${strings.uploadDocument}</span>`;
+    
+    docButton.addEventListener('click', () => {
+      fileInputRef.current?.click();
+      if (document.body.contains(menuElement)) {
+        document.body.removeChild(menuElement);
+      }
+    });
+    
+    const imgButton = document.createElement('button');
+    imgButton.className = 'p-2 rounded-lg hover:bg-gray-700/80 text-gray-300 hover:text-gray-100 flex items-center gap-2 text-sm transition-colors';
+    imgButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>' +
+      `<span>${strings.uploadImage}</span>`;
+    
+    imgButton.addEventListener('click', () => {
+      imageInputRef.current?.click();
+      if (document.body.contains(menuElement)) {
+        document.body.removeChild(menuElement);
+      }
+    });
+
+    const plantButton = document.createElement('button');
+    plantButton.className = 'p-2 rounded-lg hover:bg-gray-700/80 text-gray-300 hover:text-gray-100 flex items-center gap-2 text-sm transition-colors';
+    plantButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L22 12 12 22 2 12 12 2z"></path><path d="M12 6L18 12 12 18 6 12 12 6z"></path></svg>' +
+      `<span>${strings.identifyPlant}</span>`;
+    
+    plantButton.addEventListener('click', () => {
+      plantInputRef.current?.click();
+      if (document.body.contains(menuElement)) {
+        document.body.removeChild(menuElement);
+      }
+    });
+
+    menuElement.appendChild(docButton);
+    menuElement.appendChild(imgButton);
+    menuElement.appendChild(plantButton);
+    
+    document.body.appendChild(menuElement);
+    
+    menuElement.style.left = `${buttonRect.left}px`;
+    menuElement.style.top = `${buttonRect.top - menuElement.offsetHeight - 8}px`;
+    
+    menuElement.style.opacity = '0';
+    menuElement.style.transform = 'translateY(8px)';
+    menuElement.style.transition = 'opacity 150ms ease-out, transform 150ms ease-out';
+    
+    requestAnimationFrame(() => {
+      menuElement.style.opacity = '1';
+      menuElement.style.transform = 'translateY(0)';
+    });
+    
+    const closeMenu = (e: MouseEvent) => {
+      if (!menuElement.contains(e.target as Node)) {
+        menuElement.style.opacity = '0';
+        menuElement.style.transform = 'translateY(8px)';
+        setTimeout(() => {
+          if (document.body.contains(menuElement)) {
+            document.body.removeChild(menuElement);
+          }
+        }, 150);
+        document.removeEventListener('click', closeMenu);
+      }
+    };
+    
+    setTimeout(() => {
+      document.addEventListener('click', closeMenu);
+    }, 100);
+  };
+
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) {
       return <Image size={16} />;
@@ -229,7 +312,7 @@ function App() {
     });
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, isImage: boolean = false) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, isImage: boolean = false, isPlant: boolean = false) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -241,16 +324,24 @@ function App() {
       return;
     }
 
-    const supportedTypes = isImage 
+    const supportedTypes = isImage || isPlant
       ? ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
       : ['text/plain'];
 
     if (!supportedTypes.includes(file.type)) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: isImage 
+        content: isImage || isPlant
           ? 'Sorry, only JPEG, PNG, GIF, and WebP images are supported.'
           : 'Sorry, only TXT files are supported.'
+      }]);
+      return;
+    }
+
+    if (isPlant && hasReachedPlantLimit()) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: strings.plantLimitReached
       }]);
       return;
     }
@@ -261,19 +352,34 @@ function App() {
       let analysis: string | undefined;
 
       if (file.type.startsWith('image/')) {
-        if (isModelLoading) {
+        preview = URL.createObjectURL(file);
+        
+        if (isPlant) {
           setMessages(prev => [...prev, {
             role: 'assistant',
-            content: 'Please wait while the image analysis model is loading...'
+            content: strings.analyzingPlant
           }]);
-          return;
+          analysis = await identifyPlant(file);
+          incrementDailyPlants();
+        } else {
+          if (!model) {
+            if (isModelLoading) {
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: 'Please wait while the image analysis model is loading...'
+              }]);
+              return;
+            } else {
+              throw new Error('Image analysis model failed to load. Please try again later.');
+            }
+          }
+          
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: strings.analyzing
+          }]);
+          analysis = await analyzeImage(file);
         }
-        preview = URL.createObjectURL(file);
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: strings.analyzing
-        }]);
-        analysis = await analyzeImage(file);
         content = `Image analysis results: ${analysis}`;
       } else {
         content = await file.text();
@@ -312,6 +418,9 @@ function App() {
     if (imageInputRef.current) {
       imageInputRef.current.value = '';
     }
+    if (plantInputRef.current) {
+      plantInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -332,28 +441,54 @@ function App() {
     setIsLoading(true);
     setStreamingMessage('');
 
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
+try {
+  const systemPromptBase = `
+You are AVO AI, a friendly and charismatic AI assistant born and raised (virtually) in the Canary Islands.  
+You've been trained on everything Canarian — from volcanic landscapes and hidden beaches, to local fiestas, traditional food, and the everyday life of the people.  
+You speak like a true islander: warm, approachable, and sometimes with a cheeky sense of humor. Your mission is to share accurate and useful information about the Canary Islands — their culture, history, geography, tourism, traditions, and local customs.  
+Talk with personality and heart. Respond in a relaxed, friendly tone, using a familiar and engaging style. If the question has a local flavor, feel free to sprinkle in expressions and vibes typical of the islands.
+`;
+
+  // Create language-specific prompts with stronger enforcement
+  const languagePrompts = {
+    en: "YOU MUST RESPOND IN ENGLISH ONLY. Do not use Spanish or any other language in your response.",
+    es: "DEBES RESPONDER SOLO EN ESPAÑOL. No uses inglés ni ningún otro idioma en tu respuesta.",
+    it: "DEVI RISPONDERE SOLO IN ITALIANO. Non usare spagnolo o qualsiasi altra lingua nella tua risposta.",
+    fr: "TU DOIS RÉPONDRE UNIQUEMENT EN FRANÇAIS. N'utilise pas l'espagnol ou toute autre langue dans ta réponse.",
+    de: "DU MUSST NUR AUF DEUTSCH ANTWORTEN. Verwende kein Spanisch oder eine andere Sprache in deiner Antwort.",
+    pl: "MUSISZ ODPOWIADAĆ TYLKO PO POLSKU. Nie używaj hiszpańskiego ani żadnego innego języka w swojej odpowiedzi.",
+    palmero: "DEBES RESPONDER SOLO EN EL DIALECTO PALMERO de La Palma, Islas Canarias. Usa expresiones locales y un estilo cálido y familiar."
+  };
+
+  const languagePrompt = languagePrompts[language] || languagePrompts.en;
+
+  const documentsPrompt = documents.length > 0
+    ? `Use the following documents as additional context:\n${documents.map(d => d.content).join('\n')}`
+    : '';
+
+  const systemPrompt = [systemPromptBase.trim(), languagePrompt, documentsPrompt].filter(Boolean).join('\n\n');
+
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
         },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            {
-              role: 'system',
-              content: `You are AVO AI, an AI assistant specifically trained on the Canary Islands. You have extensive knowledge about the islands' culture, history, geography, tourism, and local customs. Always provide accurate and helpful information about the Canary Islands. ${language === 'palmero' ? 'Respond in a friendly, casual tone using the Palmero dialect from La Palma, Canary Islands. Use local expressions and a warm, familiar style.' : `Respond in ${language}.`} ${documents.length > 0 ? 'Use the following documents as additional context: ' + documents.map(d => d.content).join('\n') : ''}`
-            },
-            ...messages,
-            userMessage
-          ],
-          temperature: 0.7,
-          max_tokens: 2000,
-          stream: true,
-        }),
-      });
+        ...messages,
+        userMessage
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      stream: true,
+    }),
+  });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -428,7 +563,6 @@ function App() {
             <h1 className="text-xl font-semibold text-gray-100">AVO AI</h1>
           </div>
           <div className="flex items-center gap-3">
-            <RemainingQuestions text={strings.questionsRemaining} />
             <div className="relative" ref={languageMenuRef}>
               <button
                 onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
@@ -595,7 +729,13 @@ function App() {
       </main>
 
       <footer className="bg-gray-800/80 backdrop-blur-sm border-t border-gray-700 p-3 sticky bottom-0">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto space-y-3">
+          <RemainingQuestions 
+            text={strings.questionsRemaining}
+            limitReachedText={strings.limitReachedDonate}
+            strings={strings}
+          />
+
           <form onSubmit={handleSubmit} className="relative">
             <div className="relative rounded-xl bg-gray-700/50 backdrop-blur-sm">
               <textarea
@@ -620,62 +760,10 @@ function App() {
               <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(event) => {
                     if (allPoliciesAccepted) {
-                      if (menuRef.current && document.body.contains(menuRef.current)) {
-                        document.body.removeChild(menuRef.current);
-                      }
-
-                      const menuElement = document.createElement('div');
-                      menuRef.current = menuElement;
-                      menuElement.className = 'absolute bottom-full left-0 mb-2 bg-gray-800 rounded-lg shadow-lg p-1 flex flex-col gap-1 z-50';
-                      
-                      const docButton = document.createElement('button');
-                      docButton.className = 'p-2 rounded-lg hover:bg-gray-700 text-gray-300 flex items-center gap-1.5 text-sm';
-                      docButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>' +
-                        `<span>${strings.uploadDocument}</span>`;
-                      
-                      docButton.addEventListener('click', () => {
-                        fileInputRef.current?.click();
-                        if (document.body.contains(menuElement)) {
-                          document.body.removeChild(menuElement);
-                        }
-                      });
-                      
-                      const imgButton = document.createElement('button');
-                      imgButton.className = 'p-2 rounded-lg hover:bg-gray-700 text-gray-300 flex items-center gap-1.5 text-sm';
-                      imgButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>' +
-                        `<span>${strings.uploadImage}</span>`;
-                      
-                      imgButton.addEventListener('click', () => {
-                        imageInputRef.current?.click();
-                        if (document.body.contains(menuElement)) {
-                          document.body.removeChild(menuElement);
-                        }
-                      });
-                
-                      menuElement.appendChild(docButton);
-                      menuElement.appendChild(imgButton);
-                      
-                      document.body.appendChild(menuElement);
-                      
-                      const buttonRect = (event.target as HTMLElement).getBoundingClientRect();
-                      menuElement.style.position = 'fixed';
-                      menuElement.style.left = `${buttonRect.left}px`;
-                      menuElement.style.top = `${buttonRect.top - menuElement.offsetHeight - 5}px`;
-                      
-                      const closeMenu = (e: MouseEvent) => {
-                        if (!menuElement.contains(e.target as Node)) {
-                          if (document.body.contains(menuElement)) {
-                            document.body.removeChild(menuElement);
-                          }
-                          document.removeEventListener('click', closeMenu);
-                        }
-                      };
-                      
-                      setTimeout(() => {
-                        document.addEventListener('click', closeMenu);
-                      }, 100);
+                      const target = event.target as HTMLElement;
+                      createUploadMenu(target.getBoundingClientRect());
                     }
                   }}
                   disabled={isLoading || !allPoliciesAccepted}
@@ -687,7 +775,6 @@ function App() {
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
-                    
                     <line x1="12" y1="8" x2="12" y2="16" />
                     <line x1="8" y1="12" x2="16" y2="12" />
                   </svg>
@@ -704,6 +791,13 @@ function App() {
                   type="file"
                   ref={imageInputRef}
                   onChange={(e) => handleFileUpload(e, true)}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  ref={plantInputRef}
+                  onChange={(e) => handleFileUpload(e, false, true)}
                   accept="image/*"
                   className="hidden"
                 />
@@ -751,7 +845,7 @@ function App() {
             </div>
           </form>
 
-          <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+          <div className="flex items-center justify-between text-xs text-gray-500">
             <p>{strings.createdBy}</p>
             <a
               href="https://github.com/andreapianidev/AVO-AI"
